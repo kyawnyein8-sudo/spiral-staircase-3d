@@ -10,7 +10,7 @@
 
 <!-- THREE.JS & ORBIT CONTROLS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
 <style>
 * {
@@ -148,9 +148,9 @@ html, body {
     justify-content: center;
     padding: 16px;
     text-align: center;
-    font-size: 13px;
+    font-size: 12.5px;
     color: #ffb4b4;
-    background: rgba(24, 24, 24, 0.9);
+    background: rgba(24, 24, 24, 0.92);
     z-index: 6;
 }
 
@@ -538,7 +538,7 @@ const I18N = {
         angleLbl: "အဆင့် လှည့်ထောင့် (Step Angle):",
         unitNames: { mm: "mm", cm: "cm", inch: "in", ft: "ft" },
         shareHeader: "📐 *3D ကြောင်လိမ်လှေကား တွက်ချက်မှု*",
-        webglErr: "3D WebGL ဖွင့်မရပါ (Browser သို့မဟုတ် Telegram WebView တွင် WebGL ဖွင့်ထားရန် လိုအပ်ပါသည်)။",
+        webglErr: "3D WebGL ဖွင့်မရပါ (Three.js သို့မဟုတ် WebGL ကို စစ်ဆေးပါ)။",
         modalTitle: "အဆင့်အလိုက် Dimension ဇယား",
         closeBtn: "ပိတ်မည်",
         copyTable: "ဇယား ကူးယူမည်",
@@ -766,7 +766,7 @@ function attachFallbackOrbit(domEl) {
 function init3D() {
     const container = document.getElementById("viewport");
     if (!container || typeof THREE === "undefined") {
-        showViewportError(I18N[currentLang].webglErr);
+        showViewportError(I18N[currentLang].webglErr + " (THREE undefined)");
         return;
     }
 
@@ -780,7 +780,7 @@ function init3D() {
             powerPreference: "default"
         });
     } catch (err) {
-        showViewportError(I18N[currentLang].webglErr);
+        showViewportError(I18N[currentLang].webglErr + " (" + (err && err.message ? err.message : "WebGL error") + ")");
         return;
     }
 
@@ -906,90 +906,95 @@ function updateStaircase() {
 
     if (!scene || !camera) return;
 
-    clearGroup(stairGroup);
-    clearGroup(balusterGroup);
-    clearGroup(handrailGroup);
+    try {
+        clearGroup(stairGroup);
+        clearGroup(balusterGroup);
+        clearGroup(handrailGroup);
 
-    if (H_mm <= 0 || D1_mm <= 0) return;
+        if (H_mm <= 0 || D1_mm <= 0) return;
 
-    if (innerRadius > 0) {
-        const poleGeo = new THREE.CylinderGeometry(innerRadius, innerRadius, H_mm, 32);
-        const poleMat = new THREE.MeshStandardMaterial({ color: 0xa0a0a0, metalness: 0.4, roughness: 0.35 });
-        const pole = new THREE.Mesh(poleGeo, poleMat);
-        pole.position.y = H_mm / 2;
-        stairGroup.add(pole);
-    }
-
-    const treadThickness = Math.max(15, H_mm / (C * 5));
-    const stepMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.45 });
-    const railMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.5, roughness: 0.3 });
-    const balusterMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.45, roughness: 0.35 });
-
-    const anticlockwise = stepAngleRad >= 0;
-    const inset = Math.min(20, Math.max(6, outerRadius * 0.025));
-    const railRadius = Math.max(10, outerRadius - inset);
-    const railHeightAboveStep = Math.max(300, Math.min(1000, H_mm * 0.35));
-    const balusterRadius = Math.max(6, Math.min(16, outerRadius * 0.014));
-    const railTubeRadius = Math.max(9, Math.min(22, outerRadius * 0.018));
-
-    const handrailCurvePoints = [];
-
-    for (let i = 0; i < C; i++) {
-        const shape = new THREE.Shape();
-        shape.moveTo(innerRadius, 0);
-        shape.lineTo(outerRadius, 0);
-        shape.absarc(0, 0, outerRadius, 0, stepAngleRad, !anticlockwise);
-        shape.lineTo(innerRadius * Math.cos(stepAngleRad), innerRadius * Math.sin(stepAngleRad));
         if (innerRadius > 0) {
-            shape.absarc(0, 0, innerRadius, stepAngleRad, 0, anticlockwise);
+            const poleGeo = new THREE.CylinderGeometry(innerRadius, innerRadius, H_mm, 32);
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0xa0a0a0, metalness: 0.4, roughness: 0.35 });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.y = H_mm / 2;
+            stairGroup.add(pole);
         }
-        shape.closePath();
 
-        const extrudeSettings = { depth: treadThickness, bevelEnabled: false };
-        const stepGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        const stepMesh = new THREE.Mesh(stepGeo, stepMat);
+        const treadThickness = Math.max(15, H_mm / (C * 5));
+        const stepMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.45 });
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.5, roughness: 0.3 });
+        const balusterMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.45, roughness: 0.35 });
 
-        stepMesh.rotation.x = Math.PI / 2;
-        stepMesh.rotation.z = -i * stepAngleRad;
-        const stepY = (i + 1) * (H_mm / C);
-        stepMesh.position.y = stepY;
+        const anticlockwise = stepAngleRad >= 0;
+        const inset = Math.min(20, Math.max(6, outerRadius * 0.025));
+        const railRadius = Math.max(10, outerRadius - inset);
+        const railHeightAboveStep = Math.max(300, Math.min(1000, H_mm * 0.35));
+        const balusterRadius = Math.max(6, Math.min(16, outerRadius * 0.014));
+        const railTubeRadius = Math.max(9, Math.min(22, outerRadius * 0.018));
 
-        stairGroup.add(stepMesh);
-        stepMesh.updateMatrixWorld(true);
+        const handrailCurvePoints = [];
 
-        const halfAngle = stepAngleRad * 0.5;
-        const localMidPt = new THREE.Vector3(
-            railRadius * Math.cos(halfAngle),
-            railRadius * Math.sin(halfAngle),
-            0
-        );
-        const worldMidBase = localMidPt.clone().applyMatrix4(stepMesh.matrixWorld);
+        for (let i = 0; i < C; i++) {
+            const shape = new THREE.Shape();
+            shape.moveTo(innerRadius, 0);
+            shape.lineTo(outerRadius, 0);
+            shape.absarc(0, 0, outerRadius, 0, stepAngleRad, !anticlockwise);
+            shape.lineTo(innerRadius * Math.cos(stepAngleRad), innerRadius * Math.sin(stepAngleRad));
+            if (innerRadius > 0) {
+                shape.absarc(0, 0, innerRadius, stepAngleRad, 0, anticlockwise);
+            }
+            shape.closePath();
 
-        const balusterGeo = new THREE.CylinderGeometry(balusterRadius, balusterRadius, railHeightAboveStep, 12);
-        const balusterMesh = new THREE.Mesh(balusterGeo, balusterMat);
-        balusterMesh.position.set(worldMidBase.x, stepY + railHeightAboveStep / 2, worldMidBase.z);
-        balusterGroup.add(balusterMesh);
+            const extrudeSettings = { depth: treadThickness, bevelEnabled: false };
+            const stepGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            const stepMesh = new THREE.Mesh(stepGeo, stepMat);
 
-        handrailCurvePoints.push(new THREE.Vector3(worldMidBase.x, stepY + railHeightAboveStep, worldMidBase.z));
+            stepMesh.rotation.x = Math.PI / 2;
+            stepMesh.rotation.z = -i * stepAngleRad;
+            const stepY = (i + 1) * (H_mm / C);
+            stepMesh.position.y = stepY;
+
+            stairGroup.add(stepMesh);
+            stepMesh.updateMatrixWorld(true);
+
+            const halfAngle = stepAngleRad * 0.5;
+            const localMidPt = new THREE.Vector3(
+                railRadius * Math.cos(halfAngle),
+                railRadius * Math.sin(halfAngle),
+                0
+            );
+            const worldMidBase = localMidPt.clone().applyMatrix4(stepMesh.matrixWorld);
+
+            const balusterGeo = new THREE.CylinderGeometry(balusterRadius, balusterRadius, railHeightAboveStep, 12);
+            const balusterMesh = new THREE.Mesh(balusterGeo, balusterMat);
+            balusterMesh.position.set(worldMidBase.x, stepY + railHeightAboveStep / 2, worldMidBase.z);
+            balusterGroup.add(balusterMesh);
+
+            handrailCurvePoints.push(new THREE.Vector3(worldMidBase.x, stepY + railHeightAboveStep, worldMidBase.z));
+        }
+
+        if (handrailCurvePoints.length >= 2) {
+            const curve = new THREE.CatmullRomCurve3(handrailCurvePoints);
+            const tubeGeo = new THREE.TubeGeometry(curve, Math.max(32, C * 10), railTubeRadius, 12, false);
+            const railMesh = new THREE.Mesh(tubeGeo, railMat);
+            handrailGroup.add(railMesh);
+        }
+
+        const maxDim = Math.max(H_mm + railHeightAboveStep, D1_mm);
+        const camDist = maxDim * 2.1;
+        const targetY = (H_mm + railHeightAboveStep) * 0.48;
+
+        lastCameraPose = {
+            pos: new THREE.Vector3(camDist, (H_mm + railHeightAboveStep) * 0.65, camDist),
+            target: new THREE.Vector3(0, targetY, 0),
+            radius: camDist * 1.4
+        };
+        resetCameraView();
+        hideViewportError();
+    } catch (err) {
+        showViewportError("3D Render Error: " + (err && err.message ? err.message : String(err)));
     }
-
-    if (handrailCurvePoints.length >= 2) {
-        const curve = new THREE.CatmullRomCurve3(handrailCurvePoints);
-        const tubeGeo = new THREE.TubeGeometry(curve, Math.max(32, C * 10), railTubeRadius, 12, false);
-        const railMesh = new THREE.Mesh(tubeGeo, railMat);
-        handrailGroup.add(railMesh);
-    }
-
-    const maxDim = Math.max(H_mm + railHeightAboveStep, D1_mm);
-    const camDist = maxDim * 2.1;
-    const targetY = (H_mm + railHeightAboveStep) * 0.48;
-
-    lastCameraPose = {
-        pos: new THREE.Vector3(camDist, (H_mm + railHeightAboveStep) * 0.65, camDist),
-        target: new THREE.Vector3(0, targetY, 0),
-        radius: camDist * 1.4
-    };
-    resetCameraView();
 }
 
 function resetCameraView() {
