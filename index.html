@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>3D Spiral Staircase Calculator</title>
+
+<!-- Telegram WebApp SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- THREE.JS & ORBIT CONTROLS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:root {
+    --bg-main: #121212;
+    --bg-vp: #181818;
+    --bg-panel: #1e1e1e;
+    --bg-input: #2a2a2a;
+    --border-color: #3a3a3a;
+    --accent: #4caf50;
+    --accent-hover: #43a047;
+    --text-main: #ffffff;
+    --text-muted: #b0b0b0;
+    --res-val: #81c784;
+}
+
+html, body {
+    width: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--bg-main);
+    color: var(--text-main);
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bg-main);
+}
+
+/* Top Bar with Language Switcher */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.app-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lang-switch {
+    display: flex;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px;
+    flex-shrink: 0;
+}
+
+.lang-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-btn.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+/* 3D Viewport */
+#viewport {
+    position: relative;
+    width: 100%;
+    height: 44dvh;
+    min-height: 220px;
+    background: var(--bg-vp);
+    touch-action: none;
+    flex-shrink: 0;
+}
+
+.hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.72);
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 11px;
+    color: #ddd;
+    pointer-events: none;
+    z-index: 5;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Controls & Results Scroll Area */
+.sidebar {
+    flex: 1;
+    width: 100%;
+    background: var(--bg-panel);
+    padding: 12px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.input-group label {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.input-group input,
+.input-group select {
+    width: 100%;
+    padding: 9px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    border-radius: 7px;
+    font-size: 14px;
+    outline: none;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+    border-color: var(--accent);
+}
+
+.action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+button.btn-calc {
+    flex: 1;
+    padding: 11px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+button.btn-calc:active {
+    background: var(--accent-hover);
+    transform: scale(0.99);
+}
+
+button.btn-share {
+    padding: 11px 14px;
+    background: #2b5278;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+button.btn-share:active {
+    background: #234363;
+}
+
+.results {
+    background: var(--bg-main);
+    padding: 11px 12px;
+    border-radius: 8px;
+    border-left: 4px solid var(--accent);
+}
+
+.res-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+    margin-bottom: 7px;
+}
+
+.res-item:last-child {
+    margin-bottom: 0;
+}
+
+.res-value {
+    font-weight: 700;
+    color: var(--res-val);
+}
+
+/* Tablet & Desktop Wide Layout */
+@media (min-width: 769px) {
+    .app-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .top-bar {
+        width: 100%;
+    }
+
+    #viewport {
+        flex: 1;
+        height: calc(100dvh - 46px);
+    }
+
+    .sidebar {
+        width: 340px;
+        flex: none;
+        height: calc(100dvh - 46px);
+        border-left: 1px solid var(--border-color);
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+        <div class="app-title" id="t-title">3D ကြောင်လိမ်လှေကား Calculator</div>
+        <div class="lang-switch" role="group" aria-label="Language Switch">
+            <button type="button" class="lang-btn active" id="btn-my" onclick="setLanguage('my')">မြန်မာ</button>
+            <button type="button" class="lang-btn" id="btn-en" onclick="setLanguage('en')">EN</button>
+        </div>
+    </div>
+
+    <!-- 3D VIEWPORT -->
+    <div id="viewport">
+        <div class="hint" id="t-hint">🖱 လှည့်ရန်: ဆွဲပါ | Zoom: Pinch / Scroll</div>
+    </div>
+
+    <!-- CONTROLS & RESULTS -->
+    <div class="sidebar">
+        <div class="grid-2">
+            <div class="input-group">
+                <label id="l-unit" for="unitSelect">အသုံးပြုမည့် ယူနစ် (Unit):</label>
+                <select id="unitSelect" onchange="handleUnitChange()">
+                    <option value="mm">Millimeter (mm)</option>
+                    <option value="cm">Centimeter (cm)</option>
+                    <option value="inch">Inch (လက်မ / in)</option>
+                    <option value="ft" selected>Feet (ပေ / ft)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label id="l-height" for="height">လှေကား အမြင့် (H):</label>
+                <input type="number" id="height" value="8.86" step="any" inputmode="decimal" oninput="updateStaircase()">
+            </div>
+
+            <div class="input-group">
+                <label id="l-outerDia" for="outerDia">အပြင်ဘက် အချင်း (D1):</label>
+                <input type="number" id="outerDia" value="6.56" step="any" inputmode="decimal" oninput="updateStaircase()">
+            </div>
+
+            <div class="input-group">
+                <label id="l-innerDia" for="innerDia">အတွင်း အလယ်တိုင် (D2):</label>
+                <input type="number" id="innerDia" value="0.33" step="any" inputmode="decimal" oninput="updateStaircase()">
+            </div>
+
+            <div class="input-group">
+                <label id="l-steps" for="steps">အဆင့် အရေအတွက် (C):</label>
+                <input type="number" id="steps" value="11" min="1" step="1" inputmode="numeric" oninput="updateStaircase()">
+            </div>
+
+            <div class="input-group">
+                <label id="l-turnAngle" for="turnAngle">လှည့်သည့် ထောင့် (°):</label>
+                <input type="number" id="turnAngle" value="450" step="any" inputmode="decimal" oninput="updateStaircase()">
+            </div>
+        </div>
+
+        <div class="action-row">
+            <button type="button" class="btn-calc" id="btn-redraw" onclick="updateStaircase()">3D ပြန်လည်ဆွဲထုတ်မည်</button>
+            <button type="button" class="btn-share" id="btn-send" onclick="sendResultToTelegram()">ပို့မည်</button>
+        </div>
+
+        <div class="results">
+            <div class="res-item">
+                <span id="r-riser-lbl">အဆင့် အမြင့် (Riser):</span>
+                <span class="res-value" id="resRiser">-</span>
+            </div>
+            <div class="res-item">
+                <span id="r-len-lbl">ခြေနင်းအရှည် (Step Length):</span>
+                <span class="res-value" id="resLength">-</span>
+            </div>
+            <div class="res-item">
+                <span id="r-outer-lbl">အပြင်ဘက်အဝန်း (Outer Arc):</span>
+                <span class="res-value" id="resOuterWidth">-</span>
+            </div>
+            <div class="res-item">
+                <span id="r-angle-lbl">အဆင့် လှည့်ထောင့် (Step Angle):</span>
+                <span class="res-value" id="resStepAngle">-</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+const I18N = {
+    my: {
+        title: "3D ကြောင်လိမ်လှေကား Calculator",
+        hint: "🖱 လှည့်ရန်: ဆွဲပါ | Zoom: Pinch / Scroll",
+        unit: "အသုံးပြုမည့် ယူနစ် (Unit):",
+        height: "လှေကား အမြင့် (H):",
+        outerDia: "အပြင်ဘက် အချင်း (D1):",
+        innerDia: "အတွင်း အလယ်တိုင် (D2):",
+        steps: "အဆင့် အရေအတွက် (C):",
+        turnAngle: "လှည့်သည့် ထောင့် (°):",
+        redraw: "3D ပြန်လည်ဆွဲထုတ်မည်",
+        send: "ပို့မည်",
+        riserLbl: "အဆင့် အမြင့် (Riser):",
+        lenLbl: "ခြေနင်းအရှည် (Step Length):",
+        outerLbl: "အပြင်ဘက်အဝန်း (Outer Arc):",
+        angleLbl: "အဆင့် လှည့်ထောင့် (Step Angle):",
+        unitNames: { mm: "mm", cm: "cm", inch: "in", ft: "ft" },
+        shareHeader: "📐 *3D ကြောင်လိမ်လှေကား တွက်ချက်မှု*"
+    },
+    en: {
+        title: "3D Spiral Staircase Calculator",
+        hint: "🖱 Rotate: Drag | Zoom: Pinch / Scroll",
+        unit: "Measurement Unit:",
+        height: "Total Height (H):",
+        outerDia: "Outer Diameter (D1):",
+        innerDia: "Center Pole Dia (D2):",
+        steps: "Number of Steps (C):",
+        turnAngle: "Total Turn Angle (°):",
+        redraw: "Redraw 3D",
+        send: "Send",
+        riserLbl: "Riser Height:",
+        lenLbl: "Step Length:",
+        outerLbl: "Outer Tread Arc:",
+        angleLbl: "Angle per Step:",
+        unitNames: { mm: "mm", cm: "cm", inch: "in", ft: "ft" },
+        shareHeader: "📐 *3D Spiral Staircase Calculation*"
+    }
+};
+
+let currentLang = "my";
+let previousUnit = "ft";
+let latestSummary = null;
+
+let scene, camera, renderer, controls;
+let stairGroup = new THREE.Group();
+let balusterGroup = new THREE.Group();
+let handrailGroup = new THREE.Group();
+
+function initTelegram() {
+    if (!tg) return;
+    tg.ready();
+    tg.expand();
+    if (tg.setHeaderColor) {
+        try { tg.setHeaderColor("#1e1e1e"); } catch (e) {}
+    }
+    if (tg.setBackgroundColor) {
+        try { tg.setBackgroundColor("#121212"); } catch (e) {}
+    }
+    if (tg.MainButton) {
+        tg.MainButton.setText(I18N[currentLang].send);
+        tg.MainButton.show();
+        tg.MainButton.onClick(sendResultToTelegram);
+    }
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    document.getElementById("btn-my").classList.toggle("active", lang === "my");
+    document.getElementById("btn-en").classList.toggle("active", lang === "en");
+
+    const t = I18N[lang];
+    document.getElementById("t-title").innerText = t.title;
+    document.getElementById("t-hint").innerText = t.hint;
+    document.getElementById("l-unit").innerText = t.unit;
+    document.getElementById("l-height").innerText = t.height;
+    document.getElementById("l-outerDia").innerText = t.outerDia;
+    document.getElementById("l-innerDia").innerText = t.innerDia;
+    document.getElementById("l-steps").innerText = t.steps;
+    document.getElementById("l-turnAngle").innerText = t.turnAngle;
+    document.getElementById("btn-redraw").innerText = t.redraw;
+    document.getElementById("btn-send").innerText = t.send;
+    document.getElementById("r-riser-lbl").innerText = t.riserLbl;
+    document.getElementById("r-len-lbl").innerText = t.lenLbl;
+    document.getElementById("r-outer-lbl").innerText = t.outerLbl;
+    document.getElementById("r-angle-lbl").innerText = t.angleLbl;
+
+    if (tg && tg.MainButton) {
+        tg.MainButton.setText(t.send);
+    }
+
+    updateStaircase();
+}
+
+function getScaleToMM(unit) {
+    if (unit === "mm") return 1;
+    if (unit === "cm") return 10;
+    if (unit === "inch") return 25.4;
+    if (unit === "ft") return 304.8;
+    return 1;
+}
+
+function handleUnitChange() {
+    const newUnit = document.getElementById("unitSelect").value;
+    const oldScale = getScaleToMM(previousUnit);
+    const newScale = getScaleToMM(newUnit);
+    const ratio = oldScale / newScale;
+
+    const ids = ["height", "outerDia", "innerDia"];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        const val = parseFloat(el.value);
+        if (!isNaN(val)) {
+            const converted = val * ratio;
+            el.value = newUnit === "mm" ? converted.toFixed(1) : converted.toFixed(2);
+        }
+    });
+
+    previousUnit = newUnit;
+    updateStaircase();
+}
+
+function init3D() {
+    const container = document.getElementById("viewport");
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x181818);
+
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 300000);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.enableZoom = true;
+    controls.enablePan = false;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    dirLight.position.set(3000, 5000, 3000);
+    scene.add(dirLight);
+
+    const grid = new THREE.GridHelper(12000, 40, 0x444444, 0x222222);
+    scene.add(grid);
+
+    scene.add(stairGroup);
+    scene.add(balusterGroup);
+    scene.add(handrailGroup);
+
+    window.addEventListener("resize", onWindowResize);
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => onWindowResize()).observe(container);
+    }
+
+    updateStaircase();
+    animate();
+}
+
+function clearGroup(group) {
+    while (group.children.length > 0) {
+        const child = group.children[0];
+        group.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+            else child.material.dispose();
+        }
+    }
+}
+
+function updateStaircase() {
+    const unit = document.getElementById("unitSelect").value;
+    const unitLabel = I18N[currentLang].unitNames[unit] || unit;
+
+    let H = parseFloat(document.getElementById("height").value) || 0;
+    let D1 = parseFloat(document.getElementById("outerDia").value) || 0;
+    let D2 = parseFloat(document.getElementById("innerDia").value) || 0;
+    const C = Math.max(1, parseInt(document.getElementById("steps").value) || 1);
+    const A = parseFloat(document.getElementById("turnAngle").value) || 0;
+
+    const scaleToMM = getScaleToMM(unit);
+    const H_mm = H * scaleToMM;
+    const D1_mm = D1 * scaleToMM;
+    const D2_mm = D2 * scaleToMM;
+
+    const riserHeight = H / C;
+    const outerRadius = D1_mm / 2;
+    const innerRadius = Math.min(D2_mm / 2, Math.max(0, outerRadius * 0.85));
+    const stepLength = Math.max(0, (D1 - D2) / 2);
+    const stepAngle = A / C;
+    const stepAngleRad = stepAngle * Math.PI / 180;
+    const outerWidth = (Math.PI * D1 * Math.abs(stepAngle)) / 360;
+
+    const riserStr = `${riserHeight.toFixed(2)} ${unitLabel}`;
+    const lenStr = `${stepLength.toFixed(2)} ${unitLabel}`;
+    const outerStr = `${outerWidth.toFixed(2)} ${unitLabel}`;
+    const angleStr = `${stepAngle.toFixed(2)}°`;
+
+    document.getElementById("resRiser").innerText = riserStr;
+    document.getElementById("resLength").innerText = lenStr;
+    document.getElementById("resOuterWidth").innerText = outerStr;
+    document.getElementById("resStepAngle").innerText = angleStr;
+
+    latestSummary = {
+        lang: currentLang,
+        unit,
+        unitLabel,
+        H, D1, D2, C, A,
+        riser: riserStr,
+        stepLength: lenStr,
+        outerWidth: outerStr,
+        stepAngle: angleStr
+    };
+
+    clearGroup(stairGroup);
+    clearGroup(balusterGroup);
+    clearGroup(handrailGroup);
+
+    if (H_mm <= 0 || D1_mm <= 0) return;
+
+    /* CENTER POLE */
+    if (innerRadius > 0) {
+        const poleGeo = new THREE.CylinderGeometry(innerRadius, innerRadius, H_mm, 32);
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.5, roughness: 0.3 });
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.y = H_mm / 2;
+        stairGroup.add(pole);
+    }
+
+    /* TREADS, BALUSTERS & HANDRAIL POINTS */
+    const treadThickness = Math.max(15, H_mm / (C * 5));
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.4 });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.65, roughness: 0.25 });
+    const balusterMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.6, roughness: 0.3 });
+
+    const anticlockwise = stepAngleRad >= 0;
+    const railRadius = Math.max(10, outerRadius - Math.min(25, outerRadius * 0.03));
+    const railHeightAboveStep = Math.max(400, Math.min(1000, H_mm * 0.35));
+    const balusterRadius = Math.max(6, Math.min(18, outerRadius * 0.015));
+    const railTubeRadius = Math.max(10, Math.min(24, outerRadius * 0.02));
+
+    const handrailCurvePoints = [];
+
+    for (let i = 0; i < C; i++) {
+        const shape = new THREE.Shape();
+        shape.moveTo(innerRadius, 0);
+        shape.lineTo(outerRadius, 0);
+        shape.absarc(0, 0, outerRadius, 0, stepAngleRad, !anticlockwise);
+        shape.lineTo(innerRadius * Math.cos(stepAngleRad), innerRadius * Math.sin(stepAngleRad));
+        if (innerRadius > 0) {
+            shape.absarc(0, 0, innerRadius, stepAngleRad, 0, anticlockwise);
+        }
+        shape.closePath();
+
+        const extrudeSettings = { depth: treadThickness, bevelEnabled: false };
+        const stepGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        const stepMesh = new THREE.Mesh(stepGeo, stepMat);
+
+        stepMesh.rotation.x = Math.PI / 2;
+        stepMesh.rotation.z = -i * stepAngleRad;
+        const stepY = (i + 1) * (H_mm / C);
+        stepMesh.position.y = stepY;
+
+        stairGroup.add(stepMesh);
+
+        /* BALUSTER AT STEP FRONT-OUTER EDGE */
+        const midAngle = -(i + 0.5) * stepAngleRad;
+        const bx = railRadius * Math.cos(midAngle);
+        const bz = -railRadius * Math.sin(midAngle);
+        const balusterGeo = new THREE.CylinderGeometry(balusterRadius, balusterRadius, railHeightAboveStep, 12);
+        const balusterMesh = new THREE.Mesh(balusterGeo, balusterMat);
+        balusterMesh.position.set(bx, stepY + railHeightAboveStep / 2, bz);
+        balusterGroup.add(balusterMesh);
+
+        /* HANDRAIL TOP POINT */
+        handrailCurvePoints.push(new THREE.Vector3(bx, stepY + railHeightAboveStep, bz));
+    }
+
+    /* HELICAL HANDRAIL TUBE */
+    if (handrailCurvePoints.length >= 2) {
+        const curve = new THREE.CatmullRomCurve3(handrailCurvePoints);
+        const tubeGeo = new THREE.TubeGeometry(curve, Math.max(24, C * 8), railTubeRadius, 12, false);
+        const railMesh = new THREE.Mesh(tubeGeo, railMat);
+        handrailGroup.add(railMesh);
+    }
+
+    /* AUTO CAMERA DISTANCE */
+    const maxDim = Math.max(H_mm + railHeightAboveStep, D1_mm);
+    const camDist = maxDim * 2.2;
+    camera.position.set(camDist, (H_mm + railHeightAboveStep) * 0.65, camDist);
+    controls.target.set(0, (H_mm + railHeightAboveStep) / 2, 0);
+    controls.update();
+}
+
+function sendResultToTelegram() {
+    if (!latestSummary) return;
+    const s = latestSummary;
+    const header = I18N[s.lang].shareHeader;
+    const text =
+        `${header}\n` +
+        `• Unit: ${s.unitLabel}\n` +
+        `• H: ${s.H} ${s.unitLabel} | D1: ${s.D1} ${s.unitLabel} | D2: ${s.D2} ${s.unitLabel}\n` +
+        `• Steps (C): ${s.C} | Turn: ${s.A}°\n` +
+        `• Riser: ${s.riser}\n` +
+        `• Step Length: ${s.stepLength}\n` +
+        `• Outer Arc: ${s.outerWidth}\n` +
+        `• Step Angle: ${s.stepAngle}`;
+
+    if (tg && typeof tg.sendData === "function") {
+        tg.sendData(JSON.stringify({ type: "spiral_staircase_calc", summaryText: text, data: s }));
+    } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert(s.lang === "my" ? "တွက်ချက်မှုရလဒ်ကို Copy ကူးယူပြီးပါပြီ။" : "Calculation copied to clipboard.");
+        });
+    }
+}
+
+function onWindowResize() {
+    const container = document.getElementById("viewport");
+    if (!container || !camera || !renderer) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width === 0 || height === 0) return;
+
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (controls) controls.update();
+    if (renderer && scene && camera) renderer.render(scene, camera);
+}
+
+window.addEventListener("load", () => {
+    initTelegram();
+    init3D();
+});
+</script>
+
+</body>
+</html>
