@@ -10,7 +10,7 @@
 
 <!-- THREE.JS & ORBIT CONTROLS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.min.js"></script>
 
 <style>
 * {
@@ -103,8 +103,8 @@ html, body {
 #viewport {
     position: relative;
     width: 100%;
-    height: 43dvh;
-    min-height: 215px;
+    height: 45dvh;
+    min-height: 230px;
     background: var(--bg-vp);
     touch-action: none;
     flex-shrink: 0;
@@ -134,6 +134,10 @@ html, body {
     pointer-events: none;
     z-index: 5;
     border: 1px solid rgba(255, 255, 255, 0.12);
+    max-width: calc(100% - 20px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .vp-status {
@@ -589,6 +593,7 @@ let handrailGroup = new THREE.Group();
 let fallbackTarget = new THREE.Vector3(0, 1200, 0);
 let spherical = new THREE.Spherical(6500, Math.PI / 3, Math.PI / 4);
 let lastCameraPose = null;
+let updateFallbackCamera = null;
 
 function showViewportError(msg) {
     const statusEl = document.getElementById("vpStatus");
@@ -700,7 +705,6 @@ function attachFallbackOrbit(domEl) {
         if (domEl.setPointerCapture) {
             try { domEl.setPointerCapture(e.pointerId); } catch (err) {}
         }
-        e.stopPropagation();
     });
 
     domEl.addEventListener("pointermove", (e) => {
@@ -713,7 +717,6 @@ function attachFallbackOrbit(domEl) {
         spherical.theta -= dx * 0.008;
         spherical.phi -= dy * 0.008;
         applySpherical();
-        e.stopPropagation();
     });
 
     const endDrag = (e) => {
@@ -728,7 +731,6 @@ function attachFallbackOrbit(domEl) {
 
     domEl.addEventListener("wheel", (e) => {
         e.preventDefault();
-        e.stopPropagation();
         spherical.radius *= e.deltaY > 0 ? 1.08 : 0.92;
         applySpherical();
     }, { passive: false });
@@ -761,8 +763,6 @@ function attachFallbackOrbit(domEl) {
     return applySpherical;
 }
 
-let updateFallbackCamera = null;
-
 function init3D() {
     const container = document.getElementById("viewport");
     if (!container || typeof THREE === "undefined") {
@@ -771,7 +771,7 @@ function init3D() {
     }
 
     const width = Math.max(container.clientWidth, 1);
-    const height = Math.max(container.clientHeight, 215);
+    const height = Math.max(container.clientHeight, 230);
 
     try {
         renderer = new THREE.WebGLRenderer({
@@ -794,30 +794,34 @@ function init3D() {
     renderer.domElement.style.touchAction = "none";
     container.appendChild(renderer.domElement);
 
-    if (typeof THREE.OrbitControls === "function") {
-        controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.08;
-        controls.rotateSpeed = 0.9;
-        controls.zoomSpeed = 1.0;
-        controls.enableZoom = true;
-        controls.enablePan = false;
-    } else {
-        updateFallbackCamera = attachFallbackOrbit(renderer.domElement);
+    updateFallbackCamera = attachFallbackOrbit(renderer.domElement);
+
+    try {
+        if (typeof THREE.OrbitControls === "function") {
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.rotateSpeed = 0.9;
+            controls.zoomSpeed = 1.0;
+            controls.enableZoom = true;
+            controls.enablePan = false;
+        }
+    } catch (e) {
+        controls = null;
     }
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.78);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(3000, 5000, 3000);
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
     fillLight.position.set(-3000, 2000, -3000);
     scene.add(fillLight);
 
-    const grid = new THREE.GridHelper(12000, 40, 0x444444, 0x222222);
+    const grid = new THREE.GridHelper(12000, 40, 0x555555, 0x2a2a2a);
     scene.add(grid);
 
     scene.add(stairGroup);
@@ -910,7 +914,7 @@ function updateStaircase() {
 
     if (innerRadius > 0) {
         const poleGeo = new THREE.CylinderGeometry(innerRadius, innerRadius, H_mm, 32);
-        const poleMat = new THREE.MeshStandardMaterial({ color: 0x909090, metalness: 0.5, roughness: 0.3 });
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0xa0a0a0, metalness: 0.4, roughness: 0.35 });
         const pole = new THREE.Mesh(poleGeo, poleMat);
         pole.position.y = H_mm / 2;
         stairGroup.add(pole);
@@ -918,8 +922,8 @@ function updateStaircase() {
 
     const treadThickness = Math.max(15, H_mm / (C * 5));
     const stepMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.45 });
-    const railMat = new THREE.MeshStandardMaterial({ color: 0x455a64, metalness: 0.55, roughness: 0.28 });
-    const balusterMat = new THREE.MeshStandardMaterial({ color: 0x78909c, metalness: 0.5, roughness: 0.32 });
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x546e7a, metalness: 0.5, roughness: 0.3 });
+    const balusterMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, metalness: 0.45, roughness: 0.35 });
 
     const anticlockwise = stepAngleRad >= 0;
     const inset = Math.min(20, Math.max(6, outerRadius * 0.025));
@@ -1008,13 +1012,19 @@ function export3DPNG() {
     if (controls) controls.update();
     renderer.render(scene, camera);
 
-    const dataUrl = renderer.domElement.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.download = "spiral-staircase-3d.png";
-    link.href = dataUrl;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        const dataUrl = renderer.domElement.toDataURL("image/png");
+        const link = document.createElement("a");
+        link.download = "spiral-staircase-3d.png";
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (err) {
+        alert(currentLang === "my"
+            ? "PNG ထုတ်ယူရာတွင် အခက်အခဲရှိနေပါသည်။"
+            : "Unable to export PNG.");
+    }
 }
 
 function openDimensionModal() {
